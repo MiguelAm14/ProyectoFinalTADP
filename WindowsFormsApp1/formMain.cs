@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNet.SignalR.Client;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -15,10 +16,73 @@ namespace WindowsFormsApp1
 {
     public partial class formMain: Form
     {
+        HubConnection connection;
+        IHubProxy hubProxy;
+        private bool isReconnecting = false;
+
         public formMain()
         {
             InitializeComponent();
+            InicializarSignalR();
 
+        }
+        private async void InicializarSignalR()
+        {
+            try
+            {
+                connection = new HubConnection("http://IP_O_DOMINIO_DEL_SERVIDOR:PUERTO/");
+                hubProxy = connection.CreateHubProxy("NotificacionHub");
+                connection.Closed += async () =>
+                {
+                    if (!isReconnecting)
+                    {
+                        isReconnecting = true;
+                        await Task.Delay(5000); // Esperar 5 segundos
+                        try
+                        {
+                            await connection.Start();
+                            this.Invoke((Action)(() =>
+                            {
+                                // Actualizar estado de conexión en UI si tienes un label
+                                // lblEstado.Text = "Conectado";
+                            }));
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error reconectando: {ex.Message}");
+                        }
+                        finally
+                        {
+                            isReconnecting = false;
+                        }
+                    }
+                };
+
+                hubProxy.On("ActualizarDatos", () =>
+                {
+                    if (this.InvokeRequired)
+                    {
+                        this.Invoke((Action)(() =>
+                        {
+                            CargarDatos(); // Método que recarga el DataGridView
+                        }));
+                    }
+                    else
+                    {
+                        CargarDatos();
+                    }
+                });
+                await connection.Start();
+
+                // Opcional: mostrar estado de conexión
+                // lblEstado.Text = "Conectado";
+
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show("Error SignalR: " + ex.Message);
+                // lblEstado.Text = "Desconectado";
+            }
         }
 
         private void diseno()
@@ -179,6 +243,19 @@ namespace WindowsFormsApp1
             // Abrir el form de insertar
             formInsertar formInsertar = new formInsertar(this);
             formInsertar.ShowDialog();
+        }
+
+        private void formMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                connection?.Stop();
+                connection?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error cerrando conexión: {ex.Message}");
+            }
         }
     }
 }
