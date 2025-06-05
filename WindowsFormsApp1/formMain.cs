@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
@@ -30,7 +31,8 @@ namespace WindowsFormsApp1
         {
             try
             {
-                connection = new HubConnection("http://IP_O_DOMINIO_DEL_SERVIDOR:PUERTO/");
+                string serverUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+                connection = new HubConnection(serverUrl);
                 hubProxy = connection.CreateHubProxy("NotificacionHub");
                 connection.Closed += async () =>
                 {

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35828.75 d17.13
+VisualStudioVersion = 17.13.35828.75
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Proyecto final", "WindowsFormsApp1\Proyecto final.csproj", "{EB52AC3C-D713-4EB0-B450-8FE4812E1C6D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServidorNet", "ServidorNet\ServidorNet.csproj", "{0C9B102D-6D7D-4D79-A054-F643E1108E85}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{EB52AC3C-D713-4EB0-B450-8FE4812E1C6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EB52AC3C-D713-4EB0-B450-8FE4812E1C6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EB52AC3C-D713-4EB0-B450-8FE4812E1C6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C9B102D-6D7D-4D79-A054-F643E1108E85}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C9B102D-6D7D-4D79-A054-F643E1108E85}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C9B102D-6D7D-4D79-A054-F643E1108E85}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C9B102D-6D7D-4D79-A054-F643E1108E85}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

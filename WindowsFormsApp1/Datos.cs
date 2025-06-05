@@ -32,7 +32,8 @@ namespace WindowsFormsApp1
         {
             try
             {
-                connection = new HubConnection("http://IP_O_DOMINIO_DEL_SERVIDOR:PUERTO/");
+                string serverUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+                connection = new HubConnection(serverUrl);
                 hubProxy = connection.CreateHubProxy("NotificacionHub");
 
                 // Configurar reconexión automática también aquí
