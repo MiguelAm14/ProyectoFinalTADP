@@ -233,10 +233,8 @@
     <Compile Include="formModificar.Designer.cs">
       <DependentUpon>formModificar.cs</DependentUpon>
     </Compile>
-    <Compile Include="NotificationHub.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Startup.cs" />
     <EmbeddedResource Include="formInsertar.resx">
       <DependentUpon>formInsertar.cs</DependentUpon>
     </EmbeddedResource>

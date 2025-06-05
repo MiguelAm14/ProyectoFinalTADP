@@ -6,9 +6,10 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using Owin;
 
+[assembly: OwinStartupAttribute(typeof(WindowsFormsApp1.Startup))]
 namespace WindowsFormsApp1
 {
-    internal class Startup
+    public class Startup
     {
         public void Configuration(IAppBuilder app)
         {
