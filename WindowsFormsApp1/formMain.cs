@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNet.SignalR.Client;
+using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,80 +13,59 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WindowsFormsApp1;
 
 namespace WindowsFormsApp1
 {
     public partial class formMain: Form
     {
-        HubConnection connection;
-        IHubProxy hubProxy;
-        private bool isReconnecting = false;
+        private NotificadorCambios _notificador;
+        private string _ipServidor;
 
         public formMain()
         {
             InitializeComponent();
-            InicializarSignalR();
-
+            
         }
-        private async void InicializarSignalR()
+
+        private string BuscarServidorEnRed()
+        {
+            // Opción 1: Usar IP predefinida del primer equipo
+            string ipLocal = NotificadorCambios.ObtenerIpLocal();
+            string ipBase = string.Join(".", ipLocal.Split('.').Take(3)) + ".";
+            return ipBase + "100"; // Ejemplo: 192.168.1.100
+        }
+
+        private async void ConectarAutomaticamente()
         {
             try
             {
-                string serverUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
-                connection = new HubConnection(serverUrl);
-                hubProxy = connection.CreateHubProxy("NotificacionHub");
-                connection.Closed += async () =>
-                {
-                    if (!isReconnecting)
-                    {
-                        isReconnecting = true;
-                        await Task.Delay(5000); // Esperar 5 segundos
-                        try
-                        {
-                            await connection.Start();
-                            this.Invoke((Action)(() =>
-                            {
-                                // Actualizar estado de conexión en UI si tienes un label
-                                // lblEstado.Text = "Conectado";
-                            }));
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error reconectando: {ex.Message}");
-                        }
-                        finally
-                        {
-                            isReconnecting = false;
-                        }
-                    }
-                };
-
-                hubProxy.On("ActualizarDatos", () =>
-                {
-                    if (this.InvokeRequired)
-                    {
-                        this.Invoke((Action)(() =>
-                        {
-                            CargarDatos(); // Método que recarga el DataGridView
-                        }));
-                    }
-                    else
-                    {
-                        CargarDatos();
-                    }
-                });
-                await connection.Start();
-
-                // Opcional: mostrar estado de conexión
-                // lblEstado.Text = "Conectado";
-
+                Console.WriteLine($"Conectando a {_ipServidor}...");
+                await _notificador.ConectarANodoPrincipal(_ipServidor);
+                Console.WriteLine($"Conectado a {_ipServidor} | Mi IP: {NotificadorCambios.ObtenerIpLocal()}");
             }
-            catch(Exception ex)
+            catch
             {
-                MessageBox.Show("Error SignalR: " + ex.Message);
-                // lblEstado.Text = "Desconectado";
+                // Si falla, intentar como servidor primario
+                Console.WriteLine($"Actuando como servidor principal | Mi IP: {NotificadorCambios.ObtenerIpLocal()}");
             }
         }
+
+        private void ActualizarGridDatos()
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action(ActualizarGridDatos));
+                return;
+            }
+
+            // Tu método existente que carga datos
+            CargarDatos();
+            Console.WriteLine($"Datos actualizados: {DateTime.Now.ToString("HH:mm:ss")}");
+        }
+
+
+
 
         private void diseno()
         {
@@ -172,6 +152,16 @@ namespace WindowsFormsApp1
         private void Form1_Load(object sender, EventArgs e)
         {
             CargarDatos();
+
+            // 1. Intentar encontrar servidor automáticamente
+            _ipServidor = BuscarServidorEnRed();
+
+            // 2. Iniciar el notificador
+            _notificador = new NotificadorCambios();
+            _notificador.AlDetectarCambio += ActualizarGridDatos;
+
+            // 3. Conectar automáticamente
+            ConectarAutomaticamente();
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
@@ -249,15 +239,8 @@ namespace WindowsFormsApp1
 
         private void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            try
-            {
-                connection?.Stop();
-                connection?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error cerrando conexión: {ex.Message}");
-            }
+            _notificador?.Dispose();
+            base.OnFormClosing(e);
         }
     }
 }
