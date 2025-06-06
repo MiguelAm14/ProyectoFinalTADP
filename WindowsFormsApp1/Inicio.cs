@@ -13,7 +13,7 @@ namespace WindowsFormsApp1
     {
         public void Configuration(IAppBuilder app)
         {
-            // Configuración robusta del servidor SignalR
+            // Configuración del servidor SignalR
             app.UseCors(CorsOptions.AllowAll);
 
             var hubConfiguration = new HubConfiguration
