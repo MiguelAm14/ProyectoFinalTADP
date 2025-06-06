@@ -23,7 +23,7 @@ namespace WindowsFormsApp1
     public partial class formMain: Form
     {
         private NotificadorCambios _notificador;
-        private string _urlServidor = "http://192.168.1.10:8080/signalr"; // Cambiar por tu IP
+        private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
         private IDisposable _webApp;
 
 
@@ -45,25 +45,50 @@ namespace WindowsFormsApp1
         private async void Form1_Load(object sender, EventArgs e)
         {
             CargarDatos();
-            string baseAddress = "http://192.168.1.10:8080/";
+
+            // Define la dirección base para el servidor
+            string baseAddress = ConfigurationManager.AppSettings["SignalRServerUrl"];
+
+            // Intentamos iniciar el servidor Owin
             try
             {
-                // Iniciar el servidor OWIN en un hilo separado o de forma asíncrona
+                // WebApp.Start intentará iniciar el servidor.
+                // Si el puerto ya está en uso, lanzará una excepción.
                 _webApp = WebApp.Start<WindowsFormsApp1.Inicio>(url: baseAddress);
                 Console.WriteLine($"Servidor SignalR iniciado en {baseAddress}");
+                lblEstado.Text = $"Servidor y Cliente conectados a {baseAddress}signalr";
+            }
+            catch (Exception ex)
+            {
+                // Actuara como cliente si no puede iniciar el servidor
+                Console.WriteLine($"Error al iniciar el servidor OWIN: {ex.Message}");
+                Console.WriteLine($"Detectado como cliente: Conectando a servidor externo en {baseAddress}signalr");
+                lblEstado.Text = $"Cliente conectado a {baseAddress}signalr (Servidor externo)";
+            }
+
+            // Inicializamos el notificador y la conexión del cliente,
+            try
+            {
+                if (string.IsNullOrEmpty(_urlServidor) || !_urlServidor.EndsWith("/signalr"))
+                {
+                    _urlServidor = baseAddress + "signalr";
+                }
 
                 _notificador = new NotificadorCambios(_urlServidor);
                 _notificador.OnCambioRecibido += ActualizarGridDatos;
 
                 await _notificador.IniciarConexion();
 
-                lblEstado.Text = $"Conectado a {_urlServidor} | Esperando cambios...";
+                // Actualiza el estado si no hubo un error al iniciar el servidor
+                if (!lblEstado.Text.Contains("Error")) 
+                {
+                    lblEstado.Text = $"Conectado a {_urlServidor} | Esperando cambios...";
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al iniciar el servidor OWIN: {ex.Message}");
-                lblEstado.Text = $"Error de conexión: {ex.Message}";
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en FormPrincipal_Load: {ex}");
+                lblEstado.Text = $"Error al conectar cliente: {ex.Message}";
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en conexión de cliente: {ex}");
             }
         }
 
@@ -252,10 +277,17 @@ namespace WindowsFormsApp1
 
         private void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            _notificador?.Dispose();
-            _webApp?.Dispose(); // Asegurarte de detener el servidor también
-            base.OnFormClosing(e);
-        }
+             _notificador?.Dispose(); 
+
+             if (_webApp != null)
+             {
+                _webApp.Dispose();
+                Console.WriteLine("Server detenido.");
+             }
+
+             base.OnFormClosing(e);
+         }
+        
 
         private void panel1_Paint(object sender, PaintEventArgs e)
         {

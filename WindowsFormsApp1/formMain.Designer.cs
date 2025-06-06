@@ -32,13 +32,13 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(formMain));
             this.dgvAlumnos = new System.Windows.Forms.DataGridView();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.lblEstado = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.btnInsertar = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.txtBusqueda = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
-            this.lblEstado = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.dgvAlumnos)).BeginInit();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
@@ -71,7 +71,6 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.SystemColors.MenuHighlight;
-            this.panel1.Controls.Add(this.lblEstado);
             this.panel1.Controls.Add(this.pictureBox1);
             this.panel1.Controls.Add(this.btnInsertar);
             this.panel1.Controls.Add(this.label1);
@@ -80,6 +79,16 @@
             this.panel1.Size = new System.Drawing.Size(1008, 100);
             this.panel1.TabIndex = 1;
             this.panel1.Paint += new System.Windows.Forms.PaintEventHandler(this.panel1_Paint);
+            // 
+            // lblEstado
+            // 
+            this.lblEstado.AutoSize = true;
+            this.lblEstado.Font = new System.Drawing.Font("Roboto Light", 7.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblEstado.Location = new System.Drawing.Point(13, 576);
+            this.lblEstado.Name = "lblEstado";
+            this.lblEstado.Size = new System.Drawing.Size(49, 15);
+            this.lblEstado.TabIndex = 3;
+            this.lblEstado.Text = "Estado:";
             // 
             // pictureBox1
             // 
@@ -142,28 +151,20 @@
             this.pictureBox2.TabIndex = 4;
             this.pictureBox2.TabStop = false;
             // 
-            // lblEstado
-            // 
-            this.lblEstado.AutoSize = true;
-            this.lblEstado.Location = new System.Drawing.Point(308, 28);
-            this.lblEstado.Name = "lblEstado";
-            this.lblEstado.Size = new System.Drawing.Size(64, 16);
-            this.lblEstado.TabIndex = 3;
-            this.lblEstado.Text = "lblEstado";
-            // 
             // formMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1009, 581);
+            this.ClientSize = new System.Drawing.Size(1009, 600);
+            this.Controls.Add(this.lblEstado);
             this.Controls.Add(this.pictureBox2);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.txtBusqueda);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.dgvAlumnos);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MaximumSize = new System.Drawing.Size(1027, 628);
-            this.MinimumSize = new System.Drawing.Size(1027, 628);
+            this.MaximumSize = new System.Drawing.Size(1027, 647);
+            this.MinimumSize = new System.Drawing.Size(1027, 647);
             this.Name = "formMain";
             this.Text = " Alumnos";
             this.Load += new System.EventHandler(this.Form1_Load);
