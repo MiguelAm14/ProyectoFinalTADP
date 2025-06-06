@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNet.SignalR.Client;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Owin.Hosting;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -8,82 +10,114 @@ using System.Data.SqlClient;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WindowsFormsApp1;
+using Microsoft.Owin.Host.HttpListener;
 
 namespace WindowsFormsApp1
 {
     public partial class formMain: Form
     {
-        HubConnection connection;
-        IHubProxy hubProxy;
-        private bool isReconnecting = false;
+        private NotificadorCambios _notificador;
+
+        //private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
+        private IDisposable _webApp;
+
 
         public formMain()
         {
             InitializeComponent();
-            InicializarSignalR();
-
         }
-        private async void InicializarSignalR()
+        private void MostrarEstado(string mensaje)
         {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<string>(MostrarEstado), mensaje);
+                return;
+            }
+
+            lblEstado.Text = mensaje;
+        }
+
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            CargarDatos();
+
+            ConfigurationManager.RefreshSection("appSettings"); // Importante para recargar los cambios
+            string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+            string _urlServidor = baseUrl?.TrimEnd('/') + "/signalr";
+
+            // Define la dirección base para el servidor
+            // Recargar la sección de configuración para obtener posibles cambios recientes
+            ConfigurationManager.RefreshSection("appSettings");
+
+            // Leer la dirección base actualizada desde el archivo de configuración
+            string baseAddress = ConfigurationManager.AppSettings["SignalRServerUrl"];
+
+            // Intentamos iniciar el servidor Owin
             try
             {
-                string serverUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
-                connection = new HubConnection(serverUrl);
-                hubProxy = connection.CreateHubProxy("NotificacionHub");
-                connection.Closed += async () =>
-                {
-                    if (!isReconnecting)
-                    {
-                        isReconnecting = true;
-                        await Task.Delay(5000); // Esperar 5 segundos
-                        try
-                        {
-                            await connection.Start();
-                            this.Invoke((Action)(() =>
-                            {
-                                // Actualizar estado de conexión en UI si tienes un label
-                                // lblEstado.Text = "Conectado";
-                            }));
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error reconectando: {ex.Message}");
-                        }
-                        finally
-                        {
-                            isReconnecting = false;
-                        }
-                    }
-                };
-
-                hubProxy.On("ActualizarDatos", () =>
-                {
-                    if (this.InvokeRequired)
-                    {
-                        this.Invoke((Action)(() =>
-                        {
-                            CargarDatos(); // Método que recarga el DataGridView
-                        }));
-                    }
-                    else
-                    {
-                        CargarDatos();
-                    }
-                });
-                await connection.Start();
-
-                // Opcional: mostrar estado de conexión
-                // lblEstado.Text = "Conectado";
-
+                // WebApp.Start intentará iniciar el servidor.
+                // Si el puerto ya está en uso, lanzará una excepción.
+                _webApp = WebApp.Start<WindowsFormsApp1.Inicio>(url: baseAddress);
+                Console.WriteLine($"Servidor SignalR iniciado en {baseAddress}");
+                lblEstado.Text = $"Servidor y Cliente conectados a {baseAddress}signalr";
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                MessageBox.Show("Error SignalR: " + ex.Message);
-                // lblEstado.Text = "Desconectado";
+                // Actuara como cliente si no puede iniciar el servidor
+                Console.WriteLine($"Error al iniciar el servidor OWIN: {ex.Message}");
+                Console.WriteLine($"Detectado como cliente: Conectando a servidor externo en {baseAddress}signalr");
+                lblEstado.Text = $"Cliente conectado a {baseAddress}signalr (Servidor externo)";
+            }
+
+            // Inicializamos el notificador y la conexión del cliente,
+            try
+            {
+                if (string.IsNullOrEmpty(_urlServidor) || !_urlServidor.EndsWith("/signalr"))
+                {
+                    _urlServidor = baseAddress + "signalr";
+                }
+
+                _notificador = new NotificadorCambios(_urlServidor);
+                _notificador.OnCambioRecibido += ActualizarGridDatos;
+
+                await _notificador.IniciarConexion();
+
+                // Actualiza el estado si no hubo un error al iniciar el servidor
+                if (!lblEstado.Text.Contains("Error")) 
+                {
+                    lblEstado.Text = $"Conectado a {_urlServidor} | Esperando cambios...";
+                }
+            }
+            catch (Exception ex)
+            {
+                lblEstado.Text = $"Error al conectar cliente: {ex.Message}";
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en conexión de cliente: {ex}");
+            }
+        }
+
+        private void ActualizarGridDatos()
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action(ActualizarGridDatos));
+                return;
+            }
+
+            try
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Actualizando interfaz...");
+                CargarDatos(); // Tu método para cargar datos en el DataGridView
+                lblEstado.Text = $"Última actualización: {DateTime.Now:HH:mm:ss}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en ActualizarGridDatos: {ex}");
             }
         }
 
@@ -169,10 +203,6 @@ namespace WindowsFormsApp1
             modificar();   
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            CargarDatos();
-        }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
@@ -199,7 +229,7 @@ namespace WindowsFormsApp1
         }
 
         // Manejador de eventos para los clics en las celdas del DataGridView, ya sea editar o borrar
-        private void dgvAlumnos_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private async void dgvAlumnos_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // Asegurarse de que no se haga clic en el encabezado
 
@@ -218,7 +248,7 @@ namespace WindowsFormsApp1
                 string seccion = fila.Cells["Sección"].Value.ToString();
                 string tutor = fila.Cells["Tutor"].Value.ToString();
                 // Mandar al form de edición
-                formModificar formModificar = new formModificar(this, matricula, nombre, apPaterno, apMaterno, edad, grado, seccion, tutor);
+                formModificar formModificar = new formModificar(this, _notificador, matricula, nombre, apPaterno, apMaterno, edad, grado, seccion, tutor);
                 formModificar.ShowDialog();
 
             }
@@ -235,29 +265,48 @@ namespace WindowsFormsApp1
                     Datos datos = new Datos();
                     datos.Comando("DELETE FROM alumnos WHERE matricula = @matricula",
                         new SqlParameter("@matricula", matricula));
-                    CargarDatos();
+                    await _notificador.NotificarCambio(); // Notificar el cambio a los clientes conectados
                 }
             }
         }
 
         private void btnInsertar_Click(object sender, EventArgs e)
         {
-            // Abrir el form de insertar
-            formInsertar formInsertar = new formInsertar(this);
-            formInsertar.ShowDialog();
+            if (_notificador != null)
+            {
+                // **Pasar 'this' (referencia a formMain) y '_notificador' al constructor**
+                formInsertar formInsertar = new formInsertar(this, _notificador);
+                formInsertar.ShowDialog();
+            }
+            else
+            {
+                MessageBox.Show("El sistema de notificación no está inicializado.", "Error de Notificación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            try
-            {
-                connection?.Stop();
-                connection?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error cerrando conexión: {ex.Message}");
-            }
+             _notificador?.Dispose(); 
+
+             if (_webApp != null)
+             {
+                _webApp.Dispose();
+                Console.WriteLine("Server detenido.");
+             }
+
+             base.OnFormClosing(e);
+         }
+        
+
+        private void panel1_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void pictureBox3_Click(object sender, EventArgs e)
+        {
+            formConfig form = new formConfig();
+            form.ShowDialog();
         }
     }
 }

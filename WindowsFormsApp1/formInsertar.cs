@@ -15,11 +15,13 @@ namespace WindowsFormsApp1
     {
         // Atributo fmMain para acceder a la instancia del formulario principal
         private formMain fmMain;
-        public formInsertar(formMain fmMain)
+        private NotificadorCambios _notificador;
+        public formInsertar(formMain fmMain, NotificadorCambios notificador)
         {
             InitializeComponent();
             mtbEdad.ValidatingType = typeof(int); // Validar que la entrada sea un número entero
             this.fmMain = fmMain;
+            _notificador = notificador;
         }
 
         private void formInsertar_Load(object sender, EventArgs e)
@@ -43,7 +45,7 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void btnInsertar_Click(object sender, EventArgs e)
+        private async void btnInsertar_Click(object sender, EventArgs e)
         {
             // Validar si hay campos vacios
             if (txtNombre.Text.Trim() == "")
@@ -83,7 +85,11 @@ namespace WindowsFormsApp1
             {
                 MessageBox.Show("Alumno insertado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 // Actualizar la tabla 
-                fmMain.CargarDatos();
+                if (_notificador != null)
+                {
+                    await _notificador.NotificarCambio();
+                }
+
             }
             else
             {
@@ -91,5 +97,9 @@ namespace WindowsFormsApp1
             }
         }
 
+        private void panel1_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
     }
 }

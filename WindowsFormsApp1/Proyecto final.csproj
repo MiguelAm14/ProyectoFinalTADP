@@ -141,8 +141,14 @@
     <Reference Include="Microsoft.Owin.Cors, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Owin.Cors.4.2.2\lib\net45\Microsoft.Owin.Cors.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Owin.Host.HttpListener, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Owin.Host.HttpListener.4.2.2\lib\net45\Microsoft.Owin.Host.HttpListener.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Owin.Host.SystemWeb, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Owin.Host.SystemWeb.4.2.2\lib\net45\Microsoft.Owin.Host.SystemWeb.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Hosting, Version=4.2.2.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Owin.Hosting.4.2.2\lib\net45\Microsoft.Owin.Hosting.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Owin.Security, Version=2.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Owin.Security.2.1.0\lib\net45\Microsoft.Owin.Security.dll</HintPath>
@@ -215,6 +221,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Datos.cs" />
+    <Compile Include="formConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="formConfig.Designer.cs">
+      <DependentUpon>formConfig.cs</DependentUpon>
+    </Compile>
     <Compile Include="formInsertar.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -233,10 +245,14 @@
     <Compile Include="formModificar.Designer.cs">
       <DependentUpon>formModificar.cs</DependentUpon>
     </Compile>
-    <Compile Include="NotificationHub.cs" />
+    <Compile Include="HubCambiosDatos.cs" />
+    <Compile Include="Inicio.cs" />
+    <Compile Include="NotificadorCambios.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Startup.cs" />
+    <EmbeddedResource Include="formConfig.resx">
+      <DependentUpon>formConfig.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="formInsertar.resx">
       <DependentUpon>formInsertar.cs</DependentUpon>
     </EmbeddedResource>
@@ -293,6 +309,7 @@
     <None Include="Resources\12539392_refresh_reload_loading_sync_update_icon1.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\2849830_multimedia_options_setting_settings_gear_icon.png" />
     <Content Include="Scripts\jquery-1.6.4-vsdoc.js" />
     <Content Include="Scripts\jquery-1.6.4.js" />
     <Content Include="Scripts\jquery-1.6.4.min.js" />
