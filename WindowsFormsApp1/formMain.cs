@@ -21,17 +21,18 @@ using System.Windows.Forms.VisualStyles;
 
 namespace WindowsFormsApp1
 {
-    public partial class formMain: Form
+    public partial class formMain : Form
     {
         private NotificadorCambios _notificador;
-
-        //private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
         private IDisposable _webApp;
+        private bool _esServidor = false; // Flag para saber si somos servidor
+        private string _currentSignalRUrl = "";
 
         public formMain()
         {
             InitializeComponent();
         }
+
         private void MostrarEstado(string mensaje)
         {
             if (InvokeRequired)
@@ -45,67 +46,147 @@ namespace WindowsFormsApp1
 
         private async void Form1_Load(object sender, EventArgs e)
         {
+            await InicializarSistema();
+        }
 
-            ConfigurationManager.RefreshSection("appSettings"); // Importante para recargar los cambios
-            string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
-            string _urlServidor = baseUrl + "signalr";
-            Datos datos = new Datos();
-            if(!datos.TestConnection())
-            {
-                MessageBox.Show("No se pudo conectar a la base de datos. Por favor, configure la conexión.", "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                formConfig form = new formConfig(this);
-                form.ShowDialog();
-                return;
-            }
-            CargarDatos();
-
-            // Define la dirección base para el servidor
-            // Recargar la sección de configuración para obtener posibles cambios recientes
-            ConfigurationManager.RefreshSection("appSettings");
-
-            // Leer la dirección base actualizada desde el archivo de configuración
-            string baseAddress = ConfigurationManager.AppSettings["SignalRServerUrl"];
-
-            // Intentamos iniciar el servidor Owin
+        private async Task InicializarSistema()
+        {
             try
             {
-                // WebApp.Start intentará iniciar el servidor.
-                // Si el puerto ya está en uso, lanzará una excepción.
-                _webApp = WebApp.Start<WindowsFormsApp1.Inicio>(url: baseAddress);
-                Console.WriteLine($"Servidor SignalR iniciado en {baseAddress}");
-                lblEstado.Text = $"Servidor y Cliente conectados a {baseAddress}signalr";
+                // Recargar configuración
+                ConfigurationManager.RefreshSection("appSettings");
+                ConfigurationManager.RefreshSection("connectionStrings");
+
+                string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+
+                // Validar conexión a BD
+                Datos datos = new Datos();
+                if (!datos.TestConnection())
+                {
+                    MessageBox.Show("No se pudo conectar a la base de datos. Por favor, configure la conexión.",
+                        "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    formConfig form = new formConfig(this);
+                    form.ShowDialog();
+                    return;
+                }
+
+                CargarDatos();
+                await InicializarSignalR(baseUrl);
             }
             catch (Exception ex)
             {
-                // Actuara como cliente si no puede iniciar el servidor
-                Console.WriteLine($"Error al iniciar el servidor OWIN: {ex.Message}");
-                Console.WriteLine($"Detectado como cliente: Conectando a servidor externo en {baseAddress}signalr");
-                lblEstado.Text = $"Cliente conectado a {baseAddress}signalr (Servidor externo)";
+                MostrarEstado($"Error al inicializar: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en inicialización: {ex}");
             }
+        }
 
-            // Inicializamos el notificador y la conexión del cliente,
+        private async Task InicializarSignalR(string baseUrl)
+        {
             try
             {
-                if (string.IsNullOrEmpty(_urlServidor) || !_urlServidor.EndsWith("/signalr"))
+                // Si ya hay una conexión activa, cerrarla primero
+                await CerrarConexionesSignalR();
+
+                _currentSignalRUrl = baseUrl;
+                string signalRUrl = baseUrl + "signalr";
+
+                // Intentar iniciar como servidor
+                try
                 {
-                    _urlServidor = baseAddress + "signalr";
+                    _webApp = WebApp.Start<WindowsFormsApp1.Inicio>(url: baseUrl);
+                    _esServidor = true;
+                    Console.WriteLine($"Servidor SignalR iniciado en {baseUrl}");
+                    MostrarEstado($"Servidor activo en {baseUrl}");
+                }
+                catch (Exception ex)
+                {
+                    _esServidor = false;
+                    Console.WriteLine($"No se pudo iniciar servidor: {ex.Message}");
+                    MostrarEstado($"Conectando como cliente a {baseUrl}");
                 }
 
-                _notificador = new NotificadorCambios(_urlServidor);
+                // Inicializar cliente (tanto si somos servidor como cliente)
+                await InicializarCliente(signalRUrl);
+            }
+            catch (Exception ex)
+            {
+                MostrarEstado($"Error en SignalR: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en SignalR: {ex}");
+            }
+        }
+
+        private async Task InicializarCliente(string signalRUrl)
+        {
+            try
+            {
+                _notificador = new NotificadorCambios(signalRUrl);
                 _notificador.OnCambioRecibido += ActualizarGridDatos;
 
                 await _notificador.IniciarConexion();
 
-                // Actualiza el estado si no hubo un error al iniciar el servidor
-                if (!lblEstado.Text.Contains("Error")) 
-                {
-                    lblEstado.Text = $"Conectado a {_urlServidor} | Esperando cambios...";
-                }
+                string estado = _esServidor ?
+                    $"Servidor y Cliente activos en {_currentSignalRUrl}" :
+                    $"Cliente conectado a {_currentSignalRUrl}";
+
+                MostrarEstado($"{estado} | Esperando cambios...");
             }
             catch (Exception ex)
             {
-                lblEstado.Text = $"Error al conectar cliente: {ex.Message}";
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en conexión de cliente: {ex}");
+                MostrarEstado($"Error al conectar cliente: {ex.Message}");
+                throw;
+            }
+        }
+
+        private async Task CerrarConexionesSignalR()
+        {
+            try
+            {
+                // Cerrar cliente
+                if (_notificador != null)
+                {
+                    _notificador.OnCambioRecibido -= ActualizarGridDatos;
+                    _notificador.Dispose();
+                    _notificador = null;
+                }
+
+                // Cerrar servidor
+                if (_webApp != null)
+                {
+                    _webApp.Dispose();
+                    _webApp = null;
+                    _esServidor = false;
+                    Console.WriteLine("Servidor SignalR detenido.");
+                }
+
+                // Dar tiempo para que se liberen los recursos
+                await Task.Delay(1000);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cerrar conexiones: {ex.Message}");
+            }
+        }
+
+        // Método público para ser llamado desde formConfig
+        public async Task ReinicializarSignalR()
+        {
+            try
+            {
+                MostrarEstado("Reinicializando SignalR...");
+
+                // Recargar configuración
+                ConfigurationManager.RefreshSection("appSettings");
+                string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+
+                // Reinicializar SignalR con la nueva configuración
+                await InicializarSignalR(baseUrl);
+
+                MostrarEstado("SignalR reinicializado correctamente.");
+            }
+            catch (Exception ex)
+            {
+                MostrarEstado($"Error al reinicializar SignalR: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en reinicialización: {ex}");
             }
         }
 
@@ -120,8 +201,13 @@ namespace WindowsFormsApp1
             try
             {
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Actualizando interfaz...");
-                CargarDatos(); // Tu método para cargar datos en el DataGridView
-                lblEstado.Text = $"Última actualización: {DateTime.Now:HH:mm:ss}";
+                CargarDatos();
+
+                string estadoBase = _esServidor ?
+                    $"Servidor y Cliente activos en {_currentSignalRUrl}" :
+                    $"Cliente conectado a {_currentSignalRUrl}";
+
+                MostrarEstado($"{estadoBase} | Última actualización: {DateTime.Now:HH:mm:ss}");
             }
             catch (Exception ex)
             {
@@ -150,7 +236,6 @@ namespace WindowsFormsApp1
             dgvAlumnos.Columns["Sección"].Width = 59;
             dgvAlumnos.Columns["Tutor"].Width = 140;
 
-
             // Diseño del botón insertar
             btnInsertar.FlatStyle = FlatStyle.Flat;
             btnInsertar.FlatAppearance.BorderSize = 2;
@@ -163,7 +248,7 @@ namespace WindowsFormsApp1
             // Hover efecto
             btnInsertar.MouseEnter += (s, e) =>
             {
-                btnInsertar.BackColor = ColorTranslator.FromHtml("#E6F0FA"); 
+                btnInsertar.BackColor = ColorTranslator.FromHtml("#E6F0FA");
             };
             btnInsertar.MouseLeave += (s, e) =>
             {
@@ -199,6 +284,7 @@ namespace WindowsFormsApp1
             btnEliminar.ImageLayout = DataGridViewImageCellLayout.Zoom;
             dgvAlumnos.Columns.Add(btnEliminar);
         }
+
         public void CargarDatos()
         {
             Datos datos = new Datos();
@@ -208,7 +294,6 @@ namespace WindowsFormsApp1
             diseno();
             modificar();
         }
-
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
@@ -256,7 +341,6 @@ namespace WindowsFormsApp1
                 // Mandar al form de edición
                 formModificar formModificar = new formModificar(this, _notificador, matricula, nombre, apPaterno, apMaterno, edad, grado, seccion, tutor);
                 formModificar.ShowDialog();
-
             }
             else if (columna == "btnEliminar")
             {
@@ -290,19 +374,20 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void formMain_FormClosing(object sender, FormClosingEventArgs e)
+        private async void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-             _notificador?.Dispose(); 
+            try
+            {
+                MostrarEstado("Cerrando conexiones...");
+                await CerrarConexionesSignalR();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cerrar: {ex.Message}");
+            }
 
-             if (_webApp != null)
-             {
-                _webApp.Dispose();
-                Console.WriteLine("Server detenido.");
-             }
-
-             base.OnFormClosing(e);
-         }
-        
+            base.OnFormClosing(e);
+        }
 
         private void panel1_Paint(object sender, PaintEventArgs e)
         {

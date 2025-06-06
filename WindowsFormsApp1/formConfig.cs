@@ -12,15 +12,16 @@ using System.Windows.Forms;
 
 namespace WindowsFormsApp1
 {
-    public partial class formConfig: Form
+    public partial class formConfig : Form
     {
         private formMain main;
 
         public formConfig(formMain main)
         {
             InitializeComponent();
-            CargarConfiguracion();
             this.main = main;
+            CargarConfiguracion();
+            CargarEstadoAutenticacion(); // Llamar después de CargarConfiguracion
         }
 
         private void formConfig_Load(object sender, EventArgs e)
@@ -65,8 +66,7 @@ namespace WindowsFormsApp1
                 else
                 {
                     // Si no hay una cadena de conexión guardada, asumir SQL Server Auth por defecto
-                    // o puedes elegir que Windows Auth sea el default
-                    chkWindowsAuth.Checked = false; // O true, según tu preferencia
+                    chkWindowsAuth.Checked = false;
                     SetAuthenticationFieldsState(chkWindowsAuth.Checked);
                 }
             }
@@ -74,7 +74,7 @@ namespace WindowsFormsApp1
             {
                 // Manejar errores al analizar la cadena de conexión
                 MessageBox.Show("Error al cargar el estado de autenticación: " + ex.Message);
-                // Si hay un error, puedes establecer un estado predeterminado
+                // Si hay un error, establecer un estado predeterminado
                 chkWindowsAuth.Checked = false;
                 SetAuthenticationFieldsState(chkWindowsAuth.Checked);
             }
@@ -98,7 +98,7 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void CargarConfiguracion() // Se mantiene casi igual, solo se remueve la lógica de inicialización de chkWindowsAuth
+        private void CargarConfiguracion()
         {
             try
             {
@@ -117,7 +117,7 @@ namespace WindowsFormsApp1
                         txtUsuario.Text = builder.UserID;
                         txtContrasena.Text = builder.Password;
                     }
-                    // Si es Windows Auth, los campos de usuario/contraseña se quedarán vacíos (o se limpiarán después)
+                    // Si es Windows Auth, los campos de usuario/contraseña se quedarán vacíos
                 }
 
                 txtURLSignal.Text = signalRUrl;
@@ -128,61 +128,162 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void btnGuardar_Click(object sender, EventArgs e)
+        // HACER EL MÉTODO ASÍNCRONO
+        private async void btnGuardar_Click(object sender, EventArgs e)
         {
+            // Validaciones básicas
+            if (string.IsNullOrWhiteSpace(txtURL.Text))
+            {
+                MessageBox.Show("Debe ingresar el servidor de base de datos.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtURL.Focus();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtDB.Text))
+            {
+                MessageBox.Show("Debe ingresar el nombre de la base de datos.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtDB.Focus();
+                return;
+            }
+
+            if (!chkWindowsAuth.Checked)
+            {
+                if (string.IsNullOrWhiteSpace(txtUsuario.Text))
+                {
+                    MessageBox.Show("Debe ingresar el usuario de SQL Server.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtUsuario.Focus();
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(txtContrasena.Text))
+                {
+                    MessageBox.Show("Debe ingresar la contraseña de SQL Server.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtContrasena.Focus();
+                    return;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(txtURLSignal.Text))
+            {
+                MessageBox.Show("Debe ingresar la URL del servidor SignalR.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtURLSignal.Focus();
+                return;
+            }
+
+            // Validar formato de URL SignalR
+            if (!txtURLSignal.Text.StartsWith("http://") && !txtURLSignal.Text.StartsWith("https://"))
+            {
+                MessageBox.Show("La URL de SignalR debe comenzar con http:// o https://", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtURLSignal.Focus();
+                return;
+            }
+
+            if (!txtURLSignal.Text.EndsWith("/"))
+            {
+                txtURLSignal.Text += "/";
+            }
+
+            // Deshabilitar el botón mientras se procesa
+            btnGuardar.Enabled = false;
+            btnGuardar.Text = "Guardando...";
+
             try
             {
                 string nuevaConexion;
-                string providerName = "System.Data.SqlClient"; // El proveedor siempre es el mismo
+                string providerName = "System.Data.SqlClient";
 
                 // Lógica para construir la cadena de conexión según la opción seleccionada
                 if (chkWindowsAuth.Checked)
                 {
                     // Conexión con Autenticación de Windows
-                    nuevaConexion = $"Server={txtURL.Text};Database={txtDB.Text};Integrated Security=True;";
+                    nuevaConexion = $"Server={txtURL.Text};Database={txtDB.Text};Integrated Security=True;Connection Timeout=30;";
                 }
                 else
                 {
-                    // Conexión con Autenticación de SQL Server (IP/Nombre, Usuario, Contraseña)
-                    nuevaConexion = $"Server={txtURL.Text};Database={txtDB.Text};User Id={txtUsuario.Text};Password={txtContrasena.Text};";
+                    // Conexión con Autenticación de SQL Server
+                    nuevaConexion = $"Server={txtURL.Text};Database={txtDB.Text};User Id={txtUsuario.Text};Password={txtContrasena.Text};Connection Timeout=30;";
                 }
 
-                // Abrir configuración
-                Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-
-                // Guardar cadena de conexión
-                if (config.ConnectionStrings.ConnectionStrings["MiConexion"] != null)
+                // Probar la conexión antes de guardar
+                if (!await ProbarConexion(nuevaConexion))
                 {
-                    config.ConnectionStrings.ConnectionStrings["MiConexion"].ConnectionString = nuevaConexion;
-                    config.ConnectionStrings.ConnectionStrings["MiConexion"].ProviderName = providerName;
-                }
-                else
-                {
-                    config.ConnectionStrings.ConnectionStrings.Add(new ConnectionStringSettings("MiConexion", nuevaConexion, providerName));
+                    MessageBox.Show("No se pudo conectar a la base de datos con los parámetros proporcionados. Verifique la configuración.",
+                        "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
                 }
 
-                // Guardar URL de SignalR (esta parte se mantiene igual)
-                if (config.AppSettings.Settings["SignalRServerUrl"] != null)
-                {
-                    config.AppSettings.Settings["SignalRServerUrl"].Value = txtURLSignal.Text;
-                }
-                else
-                {
-                    config.AppSettings.Settings.Add("SignalRServerUrl", txtURLSignal.Text);
-                }
+                // Si llegamos aquí, la conexión es válida, proceder a guardar
+                await GuardarConfiguracion(nuevaConexion, providerName);
 
-                config.Save(ConfigurationSaveMode.Modified);
-                ConfigurationManager.RefreshSection("connectionStrings");
-                ConfigurationManager.RefreshSection("appSettings");
+                MessageBox.Show("Configuración guardada y aplicada correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                MessageBox.Show("Configuración guardada correctamente.");
-                main.CargarDatos(); // Llamar al método para recargar los datos en el formulario principal
                 this.Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error al guardar configuración: " + ex.Message);
+                MessageBox.Show("Error al guardar configuración: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                // Rehabilitar el botón
+                btnGuardar.Enabled = true;
+                btnGuardar.Text = "Guardar";
+            }
+        }
+
+        private async Task<bool> ProbarConexion(string connectionString)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al probar conexión: {ex.Message}");
+                return false;
+            }
+        }
+
+        private async Task GuardarConfiguracion(string nuevaConexion, string providerName)
+        {
+            // Abrir configuración
+            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+            // Guardar cadena de conexión
+            if (config.ConnectionStrings.ConnectionStrings["MiConexion"] != null)
+            {
+                config.ConnectionStrings.ConnectionStrings["MiConexion"].ConnectionString = nuevaConexion;
+                config.ConnectionStrings.ConnectionStrings["MiConexion"].ProviderName = providerName;
+            }
+            else
+            {
+                config.ConnectionStrings.ConnectionStrings.Add(new ConnectionStringSettings("MiConexion", nuevaConexion, providerName));
+            }
+
+            // Guardar URL de SignalR
+            if (config.AppSettings.Settings["SignalRServerUrl"] != null)
+            {
+                config.AppSettings.Settings["SignalRServerUrl"].Value = txtURLSignal.Text;
+            }
+            else
+            {
+                config.AppSettings.Settings.Add("SignalRServerUrl", txtURLSignal.Text);
+            }
+
+            // Guardar cambios
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("connectionStrings");
+            ConfigurationManager.RefreshSection("appSettings");
+
+            // IMPORTANTE: Recargar datos y reinicializar SignalR
+            main.CargarDatos();
+
+            // Llamar al método para reinicializar SignalR con la nueva configuración
+            await main.ReinicializarSignalR();
         }
     }
 }
