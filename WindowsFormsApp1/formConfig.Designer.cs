@@ -41,6 +41,7 @@
             this.txtURLSignal = new System.Windows.Forms.TextBox();
             this.label6 = new System.Windows.Forms.Label();
             this.btnGuardar = new System.Windows.Forms.Button();
+            this.chkWindowsAuth = new System.Windows.Forms.CheckBox();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -164,11 +165,22 @@
             this.btnGuardar.UseVisualStyleBackColor = true;
             this.btnGuardar.Click += new System.EventHandler(this.btnGuardar_Click);
             // 
+            // chkWindowsAuth
+            // 
+            this.chkWindowsAuth.AutoSize = true;
+            this.chkWindowsAuth.Location = new System.Drawing.Point(25, 511);
+            this.chkWindowsAuth.Name = "chkWindowsAuth";
+            this.chkWindowsAuth.Size = new System.Drawing.Size(113, 20);
+            this.chkWindowsAuth.TabIndex = 15;
+            this.chkWindowsAuth.Text = "Windows Auth";
+            this.chkWindowsAuth.UseVisualStyleBackColor = true;
+            // 
             // formConfig
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(694, 576);
+            this.Controls.Add(this.chkWindowsAuth);
             this.Controls.Add(this.btnGuardar);
             this.Controls.Add(this.txtURLSignal);
             this.Controls.Add(this.label6);
@@ -206,5 +218,6 @@
         private System.Windows.Forms.TextBox txtURLSignal;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Button btnGuardar;
+        private System.Windows.Forms.CheckBox chkWindowsAuth;
     }
 }

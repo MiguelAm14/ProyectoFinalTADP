@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowsFormsApp1;
 using Microsoft.Owin.Host.HttpListener;
+using System.Windows.Forms.VisualStyles;
 
 namespace WindowsFormsApp1
 {
@@ -26,7 +27,6 @@ namespace WindowsFormsApp1
 
         //private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
         private IDisposable _webApp;
-
 
         public formMain()
         {
@@ -45,11 +45,19 @@ namespace WindowsFormsApp1
 
         private async void Form1_Load(object sender, EventArgs e)
         {
-            CargarDatos();
 
             ConfigurationManager.RefreshSection("appSettings"); // Importante para recargar los cambios
             string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
-            string _urlServidor = baseUrl?.TrimEnd('/') + "/signalr";
+            string _urlServidor = baseUrl + "signalr";
+            Datos datos = new Datos();
+            if(!datos.TestConnection())
+            {
+                MessageBox.Show("No se pudo conectar a la base de datos. Por favor, configure la conexión.", "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                formConfig form = new formConfig(this);
+                form.ShowDialog();
+                return;
+            }
+            CargarDatos();
 
             // Define la dirección base para el servidor
             // Recargar la sección de configuración para obtener posibles cambios recientes
@@ -191,8 +199,6 @@ namespace WindowsFormsApp1
             btnEliminar.ImageLayout = DataGridViewImageCellLayout.Zoom;
             dgvAlumnos.Columns.Add(btnEliminar);
         }
-
-        // Carga los datos de la base de datos y los muestra en el DataGridView
         public void CargarDatos()
         {
             Datos datos = new Datos();
@@ -200,7 +206,7 @@ namespace WindowsFormsApp1
                 "ap_materno AS [Ap. Materno], edad AS [Edad], grado as [Grado], seccion as [Sección], tutor AS [Tutor] FROM alumnos");
             dgvAlumnos.DataSource = ds.Tables[0];
             diseno();
-            modificar();   
+            modificar();
         }
 
 
@@ -305,7 +311,7 @@ namespace WindowsFormsApp1
 
         private void pictureBox3_Click(object sender, EventArgs e)
         {
-            formConfig form = new formConfig();
+            formConfig form = new formConfig(this);
             form.ShowDialog();
         }
     }
