@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNet.SignalR.Client;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Owin.Hosting;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,45 +10,60 @@ using System.Data.SqlClient;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowsFormsApp1;
+using Microsoft.Owin.Host.HttpListener;
 
 namespace WindowsFormsApp1
 {
     public partial class formMain: Form
     {
         private NotificadorCambios _notificador;
-        private string _ipServidor;
+        private string _urlServidor = "http://192.168.1.10:8080/signalr"; // Cambiar por tu IP
+        private IDisposable _webApp;
+
 
         public formMain()
         {
             InitializeComponent();
-            
+        }
+        private void MostrarEstado(string mensaje)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<string>(MostrarEstado), mensaje);
+                return;
+            }
+
+            lblEstado.Text = mensaje;
         }
 
-        private string BuscarServidorEnRed()
+        private async void Form1_Load(object sender, EventArgs e)
         {
-            // Opción 1: Usar IP predefinida del primer equipo
-            string ipLocal = NotificadorCambios.ObtenerIpLocal();
-            string ipBase = string.Join(".", ipLocal.Split('.').Take(3)) + ".";
-            return ipBase + "100"; // Ejemplo: 192.168.1.100
-        }
-
-        private async void ConectarAutomaticamente()
-        {
+            CargarDatos();
+            string baseAddress = "http://192.168.1.10:8080/";
             try
             {
-                Console.WriteLine($"Conectando a {_ipServidor}...");
-                await _notificador.ConectarANodoPrincipal(_ipServidor);
-                Console.WriteLine($"Conectado a {_ipServidor} | Mi IP: {NotificadorCambios.ObtenerIpLocal()}");
+                // Iniciar el servidor OWIN en un hilo separado o de forma asíncrona
+                _webApp = WebApp.Start<WindowsFormsApp1.Inicio>(url: baseAddress);
+                Console.WriteLine($"Servidor SignalR iniciado en {baseAddress}");
+
+                _notificador = new NotificadorCambios(_urlServidor);
+                _notificador.OnCambioRecibido += ActualizarGridDatos;
+
+                await _notificador.IniciarConexion();
+
+                lblEstado.Text = $"Conectado a {_urlServidor} | Esperando cambios...";
             }
-            catch
+            catch (Exception ex)
             {
-                // Si falla, intentar como servidor primario
-                Console.WriteLine($"Actuando como servidor principal | Mi IP: {NotificadorCambios.ObtenerIpLocal()}");
+                Console.WriteLine($"Error al iniciar el servidor OWIN: {ex.Message}");
+                lblEstado.Text = $"Error de conexión: {ex.Message}";
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en FormPrincipal_Load: {ex}");
             }
         }
 
@@ -59,13 +75,17 @@ namespace WindowsFormsApp1
                 return;
             }
 
-            // Tu método existente que carga datos
-            CargarDatos();
-            Console.WriteLine($"Datos actualizados: {DateTime.Now.ToString("HH:mm:ss")}");
+            try
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Actualizando interfaz...");
+                CargarDatos(); // Tu método para cargar datos en el DataGridView
+                lblEstado.Text = $"Última actualización: {DateTime.Now:HH:mm:ss}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en ActualizarGridDatos: {ex}");
+            }
         }
-
-
-
 
         private void diseno()
         {
@@ -149,20 +169,6 @@ namespace WindowsFormsApp1
             modificar();   
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            CargarDatos();
-
-            // 1. Intentar encontrar servidor automáticamente
-            _ipServidor = BuscarServidorEnRed();
-
-            // 2. Iniciar el notificador
-            _notificador = new NotificadorCambios();
-            _notificador.AlDetectarCambio += ActualizarGridDatos;
-
-            // 3. Conectar automáticamente
-            ConectarAutomaticamente();
-        }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
@@ -189,7 +195,7 @@ namespace WindowsFormsApp1
         }
 
         // Manejador de eventos para los clics en las celdas del DataGridView, ya sea editar o borrar
-        private void dgvAlumnos_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        private async void dgvAlumnos_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // Asegurarse de que no se haga clic en el encabezado
 
@@ -208,7 +214,7 @@ namespace WindowsFormsApp1
                 string seccion = fila.Cells["Sección"].Value.ToString();
                 string tutor = fila.Cells["Tutor"].Value.ToString();
                 // Mandar al form de edición
-                formModificar formModificar = new formModificar(this, matricula, nombre, apPaterno, apMaterno, edad, grado, seccion, tutor);
+                formModificar formModificar = new formModificar(this, _notificador, matricula, nombre, apPaterno, apMaterno, edad, grado, seccion, tutor);
                 formModificar.ShowDialog();
 
             }
@@ -225,22 +231,35 @@ namespace WindowsFormsApp1
                     Datos datos = new Datos();
                     datos.Comando("DELETE FROM alumnos WHERE matricula = @matricula",
                         new SqlParameter("@matricula", matricula));
-                    CargarDatos();
+                    await _notificador.NotificarCambio(); // Notificar el cambio a los clientes conectados
                 }
             }
         }
 
         private void btnInsertar_Click(object sender, EventArgs e)
         {
-            // Abrir el form de insertar
-            formInsertar formInsertar = new formInsertar(this);
-            formInsertar.ShowDialog();
+            if (_notificador != null)
+            {
+                // **Pasar 'this' (referencia a formMain) y '_notificador' al constructor**
+                formInsertar formInsertar = new formInsertar(this, _notificador);
+                formInsertar.ShowDialog();
+            }
+            else
+            {
+                MessageBox.Show("El sistema de notificación no está inicializado.", "Error de Notificación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             _notificador?.Dispose();
+            _webApp?.Dispose(); // Asegurarte de detener el servidor también
             base.OnFormClosing(e);
+        }
+
+        private void panel1_Paint(object sender, PaintEventArgs e)
+        {
+
         }
     }
 }

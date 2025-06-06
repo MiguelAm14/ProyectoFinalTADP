@@ -23,8 +23,8 @@ namespace WindowsFormsApp1
         private string seccion;
         private string tutor;
         private formMain fmMain;
-
-        public formModificar(formMain fmMain, string matricula, string nombre, string apPaterno, string apMaterno, 
+        private NotificadorCambios _notificador;
+        public formModificar(formMain fmMain, NotificadorCambios _notificador, string matricula, string nombre, string apPaterno, string apMaterno, 
                              string edad, string grado, string seccion, string tutor)
         {
             InitializeComponent();
@@ -37,6 +37,7 @@ namespace WindowsFormsApp1
             this.seccion = seccion;
             this.tutor = tutor;
             this.fmMain = fmMain;
+            this._notificador = _notificador;
             cargarDatos();
         }
 
@@ -63,7 +64,7 @@ namespace WindowsFormsApp1
             btnModificar.Cursor = Cursors.Hand;
         }
 
-        private void btnModificar_Click(object sender, EventArgs e)
+        private async void btnModificar_Click(object sender, EventArgs e)
         {
             // Validar si hay campos vacios
             if (txtNombre.Text.Trim() == "")
@@ -111,7 +112,11 @@ namespace WindowsFormsApp1
             {
                 MessageBox.Show("Alumno actualizado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 // Actualizar la tabla 
-                fmMain.CargarDatos();
+                if (_notificador != null)
+                {
+                    await _notificador.NotificarCambio();
+                }
+
             }
             else
             {

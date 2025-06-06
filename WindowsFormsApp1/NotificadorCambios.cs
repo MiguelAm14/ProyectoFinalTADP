@@ -3,6 +3,7 @@ using Microsoft.Owin.Hosting;
 using Owin;
 using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using WindowsFormsApp1;
 
@@ -10,41 +11,78 @@ public class NotificadorCambios : IDisposable
 {
     private HubConnection _conexion;
     private IHubProxy _proxyHub;
-    private IDisposable _servidor;
+    private string _urlServidor;
 
-    public event Action AlDetectarCambio;
+    public event Action OnCambioRecibido;
 
-    public NotificadorCambios()
+    public NotificadorCambios(string urlServidor)
     {
-        IniciarServidor();
+        _urlServidor = urlServidor ?? throw new ArgumentNullException(nameof(urlServidor));
     }
 
-    private void IniciarServidor()
+    public async Task IniciarConexion()
     {
         try
         {
-            _servidor = WebApp.Start<Inicio>("http://*:8080");
-        }
-        catch { /* El puerto puede estar en uso */ }
-    }
+            // Verificar conectividad primero
+            if (!await VerificarConectividadServidor())
+            {
+                throw new Exception("No se puede alcanzar el servidor SignalR");
+            }
 
-    public async Task ConectarANodoPrincipal(string ipPrincipal)
-    {
-        try
-        {
-            _conexion = new HubConnection($"http://{ipPrincipal}:8080");
+            _conexion = new HubConnection(_urlServidor)
+            {
+                TraceLevel = TraceLevels.All,
+                TraceWriter = Console.Out
+            };
+
             _proxyHub = _conexion.CreateHubProxy("HubCambiosDatos");
 
-            _proxyHub.On("RefrescarDatos", () =>
+            _proxyHub.On("ActualizarClientes", () =>
             {
-                AlDetectarCambio?.Invoke();
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Notificación recibida");
+                OnCambioRecibido?.Invoke();
             });
 
+            _proxyHub.On<string>("RecibirConfirmacion", (mensaje) =>
+            {
+                Console.WriteLine($"[Confirmación] {mensaje}");
+            });
+
+            _conexion.Closed += async () =>
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Conexión cerrada. Reconectando...");
+                await Task.Delay(new Random().Next(2000, 5000));
+                await IniciarConexion();
+            };
+
             await _conexion.Start();
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Conexión establecida con {_urlServidor}");
+
+            // Probar conexión
+            await _proxyHub.Invoke("ProbarEco", "¡Hola desde el cliente!");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error de conexión: {ex.Message}");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en IniciarConexion: {ex}");
+            throw;
+        }
+    }
+
+    private async Task<bool> VerificarConectividadServidor()
+    {
+        try
+        {
+            var uri = new Uri(_urlServidor);
+            using (var tcpClient = new TcpClient())
+            {
+                await tcpClient.ConnectAsync(uri.Host, uri.Port);
+                return tcpClient.Connected;
+            }
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -52,28 +90,26 @@ public class NotificadorCambios : IDisposable
     {
         try
         {
-            if (_proxyHub != null)
-                await _proxyHub.Invoke("NotificarCambio");
+            if (_conexion?.State == ConnectionState.Connected)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Enviando notificación...");
+                await _proxyHub.Invoke("NotificarCambioGlobal");
+            }
+            else
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] No se puede notificar - Estado: {_conexion?.State}");
+            }
         }
-        catch { /* Manejo opcional de errores */ }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ERROR en NotificarCambio: {ex}");
+            throw;
+        }
     }
 
     public void Dispose()
     {
-        _servidor?.Dispose();
         _conexion?.Dispose();
-    }
-
-    public static string ObtenerIpLocal()
-    {
-        var host = Dns.GetHostEntry(Dns.GetHostName());
-        foreach (var ip in host.AddressList)
-        {
-            if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-            {
-                return ip.ToString();
-            }
-        }
-        return "127.0.0.1";
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Notificador liberado");
     }
 }
