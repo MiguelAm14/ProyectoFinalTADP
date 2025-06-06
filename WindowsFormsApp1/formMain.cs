@@ -23,7 +23,8 @@ namespace WindowsFormsApp1
     public partial class formMain: Form
     {
         private NotificadorCambios _notificador;
-        private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
+
+        //private string _urlServidor = ConfigurationManager.AppSettings["SignalRServerUrl"] + "signalr";
         private IDisposable _webApp;
 
 
@@ -46,7 +47,15 @@ namespace WindowsFormsApp1
         {
             CargarDatos();
 
+            ConfigurationManager.RefreshSection("appSettings"); // Importante para recargar los cambios
+            string baseUrl = ConfigurationManager.AppSettings["SignalRServerUrl"];
+            string _urlServidor = baseUrl?.TrimEnd('/') + "/signalr";
+
             // Define la dirección base para el servidor
+            // Recargar la sección de configuración para obtener posibles cambios recientes
+            ConfigurationManager.RefreshSection("appSettings");
+
+            // Leer la dirección base actualizada desde el archivo de configuración
             string baseAddress = ConfigurationManager.AppSettings["SignalRServerUrl"];
 
             // Intentamos iniciar el servidor Owin
@@ -292,6 +301,12 @@ namespace WindowsFormsApp1
         private void panel1_Paint(object sender, PaintEventArgs e)
         {
 
+        }
+
+        private void pictureBox3_Click(object sender, EventArgs e)
+        {
+            formConfig form = new formConfig();
+            form.ShowDialog();
         }
     }
 }

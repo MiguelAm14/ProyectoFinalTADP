@@ -221,6 +221,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Datos.cs" />
+    <Compile Include="formConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="formConfig.Designer.cs">
+      <DependentUpon>formConfig.cs</DependentUpon>
+    </Compile>
     <Compile Include="formInsertar.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -244,6 +250,9 @@
     <Compile Include="NotificadorCambios.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="formConfig.resx">
+      <DependentUpon>formConfig.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="formInsertar.resx">
       <DependentUpon>formInsertar.cs</DependentUpon>
     </EmbeddedResource>
@@ -300,6 +309,7 @@
     <None Include="Resources\12539392_refresh_reload_loading_sync_update_icon1.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\2849830_multimedia_options_setting_settings_gear_icon.png" />
     <Content Include="Scripts\jquery-1.6.4-vsdoc.js" />
     <Content Include="Scripts\jquery-1.6.4.js" />
     <Content Include="Scripts\jquery-1.6.4.min.js" />
