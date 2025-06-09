@@ -194,7 +194,7 @@
             this.Controls.Add(this.label2);
             this.Controls.Add(this.panel1);
             this.Name = "formConfig";
-            this.Text = "formConfig";
+            this.Text = "Configuración";
             this.Load += new System.EventHandler(this.formConfig_Load);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
