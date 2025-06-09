@@ -60,14 +60,11 @@ namespace WindowsFormsApp1
                         chkWindowsAuth.Checked = false;
                     }
 
-                    // Habilitar/Deshabilitar los campos según el estado inicial
-                    SetAuthenticationFieldsState(chkWindowsAuth.Checked);
                 }
                 else
                 {
                     // Si no hay una cadena de conexión guardada, asumir SQL Server Auth por defecto
                     chkWindowsAuth.Checked = false;
-                    SetAuthenticationFieldsState(chkWindowsAuth.Checked);
                 }
             }
             catch (Exception ex)
@@ -76,26 +73,11 @@ namespace WindowsFormsApp1
                 MessageBox.Show("Error al cargar el estado de autenticación: " + ex.Message);
                 // Si hay un error, establecer un estado predeterminado
                 chkWindowsAuth.Checked = false;
-                SetAuthenticationFieldsState(chkWindowsAuth.Checked);
             }
         }
 
         private void chkWindowsAuth_CheckedChanged(object sender, EventArgs e)
         {
-            SetAuthenticationFieldsState(chkWindowsAuth.Checked);
-        }
-
-        private void SetAuthenticationFieldsState(bool useWindowsAuth)
-        {
-            txtUsuario.Enabled = !useWindowsAuth;
-            txtContrasena.Enabled = !useWindowsAuth;
-
-            // Opcional: limpiar los campos si se cambia a autenticación de Windows
-            if (useWindowsAuth)
-            {
-                txtUsuario.Text = "";
-                txtContrasena.Text = "";
-            }
         }
 
         private void CargarConfiguracion()
